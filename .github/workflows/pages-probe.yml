@@ -1,0 +1,49 @@
+name: Pages source identity acceptance
+"on":
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  pages:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      deployment: false
+    permissions:
+      contents: read
+      actions: read
+      pages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Prepare synthetic site
+        run: |
+          mkdir site
+          printf 'Pages acceptance run %s\n' "$GITHUB_RUN_ID" > site/acceptance.txt
+          printf '<!doctype html><title>Disposable Pages acceptance</title><p>Synthetic protocol fixture.</p>\n' > site/index.html
+          tar --format=ustar -cf artifact.tar -C site .
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        id: artifact
+        with:
+          name: github-pages
+          path: artifact.tar
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+      - name: Deploy with historical source identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
+          BUILD_SOURCE_SHA: 6db46dafcebba8ce87fe2f87ec9116f6748b40f3
+        run: python3 probe.py
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: pages-protocol-proof-${{ github.run_id }}-${{ github.run_attempt }}
+          path: pages-proof.json
+          if-no-files-found: ignore
+          retention-days: 30
