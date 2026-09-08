@@ -35,10 +35,25 @@ def main():
     assert status == 200
     oidc = json.loads(raw)['value']
     headers = {'Authorization': 'Bearer ' + os.environ['GH_TOKEN'], 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'}
+    payload = {'schema': 1, 'source_sha': source, 'controller_sha': os.environ['GITHUB_SHA'],
+               'run_id': int(os.environ['GITHUB_RUN_ID']), 'artifact_id': int(os.environ['ARTIFACT_ID']),
+               'tar_sha256': hashlib.sha256(Path('artifact.tar').read_bytes()).hexdigest(),
+               'synthetic_protocol_only': True}
+    status, raw = request(API + '/deployments', headers,
+                          {'ref': source, 'task': 'wallow-pages-v1', 'auto_merge': False,
+                           'required_contexts': [], 'environment': 'github-pages',
+                           'payload': payload, 'production_environment': False})
+    assert status == 201, 'Intent create HTTP ' + str(status)
+    intent = json.loads(raw)
+    assert intent['sha'] == source and intent['payload'] == payload
+    status, raw = request(API + '/deployments/' + str(intent['id']), headers)
+    assert status == 200 and json.loads(raw)['payload'] == payload
     status, raw = request(API + '/pages/deployments', headers,
                           {'artifact_id': int(os.environ['ARTIFACT_ID']), 'pages_build_version': source, 'oidc_token': oidc})
     result = {'repository': REPO, 'controller_sha': os.environ['GITHUB_SHA'], 'source_sha': source,
-              'artifact_id': int(os.environ['ARTIFACT_ID']), 'create_status': status}
+              'artifact_id': int(os.environ['ARTIFACT_ID']), 'create_status': status,
+              'intent_id': intent['id'], 'intent_sha': intent['sha'], 'intent_payload_readback': True,
+              'intent_creator': {key: intent['creator'][key] for key in ('id', 'login', 'type')}}
     Path('pages-proof.json').write_text(json.dumps(result, indent=2) + '\n')
     if status not in (200, 201):
         raise RuntimeError('Pages create returned HTTP ' + str(status))
@@ -69,6 +84,16 @@ def main():
         time.sleep(5)
     else:
         raise RuntimeError('Published Pages bytes differ from this artifact')
+    status, raw = request(API + '/deployments/' + str(intent['id']) + '/statuses', headers,
+                          {'state': 'success', 'auto_inactive': False,
+                           'description': 'Exact synthetic artifact deployed and served bytes verified',
+                           'log_url': 'https://github.com/' + REPO + '/actions/runs/' + os.environ['GITHUB_RUN_ID'],
+                           'environment_url': 'https://bc-solutions-coder.github.io/wallow-pages-acceptance-20260908/'})
+    assert status == 201
+    completion = json.loads(raw)
+    status, raw = request(API + '/deployments/' + str(intent['id']) + '/statuses', headers)
+    assert status == 200 and any(item['id'] == completion['id'] and item['state'] == 'success' for item in json.loads(raw))
+    result['intent_success_status_id'] = completion['id']
     Path('pages-proof.json').write_text(json.dumps(result, indent=2) + '\n')
     print(json.dumps(result))
 
