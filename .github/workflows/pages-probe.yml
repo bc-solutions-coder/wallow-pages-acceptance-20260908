@@ -35,7 +35,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           ARTIFACT_ID: ${{ steps.artifact.outputs.artifact-id }}
-          BUILD_SOURCE_SHA: dc5055a23238a2e7c66941f858ea47c543222f50
+          BUILD_SOURCE_SHA: 17ca29b7e74f5ce265a89d9a260bc1d9d651d44e
         run: PYTHONPATH=scripts python3 probe.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
