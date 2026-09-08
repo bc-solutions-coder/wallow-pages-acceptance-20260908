@@ -21,12 +21,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - name: Prepare synthetic site
-        run: |
-          mkdir site
-          printf 'Pages acceptance run %s\n' "$GITHUB_RUN_ID" > site/acceptance.txt
-          printf '<!doctype html><title>Disposable Pages acceptance</title><p>Synthetic protocol fixture.</p>\n' > site/index.html
-          tar --format=ustar -cf artifact.tar -C site .
+      - name: Prepare exact validated DocFX TAR
+        run: python3 prepare-real.py
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         id: artifact
         with:

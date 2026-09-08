@@ -56,9 +56,9 @@ def main():
     assert re.fullmatch('[A-Za-z0-9_-]+', ident)
     result['deployment_id'] = ident
     result['deployment_status'] = client.wait_deployment(ident)['status']
-    expected = Path('site/acceptance.txt').read_bytes()
+    expected = Path('site/index.html').read_bytes()
     for _ in range(24):
-        status, body = request('https://bc-solutions-coder.github.io/wallow-pages-acceptance-20260908/acceptance.txt?run=' + os.environ['GITHUB_RUN_ID'], {'Cache-Control': 'no-cache'})
+        status, body = request('https://bc-solutions-coder.github.io/wallow-pages-acceptance-20260908/index.html?run=' + os.environ['GITHUB_RUN_ID'], {'Cache-Control': 'no-cache'})
         if status == 200 and body == expected:
             result['served_bytes_sha256'] = hashlib.sha256(body).hexdigest()
             result['exact_served_bytes'] = True
